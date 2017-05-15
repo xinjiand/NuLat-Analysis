@@ -6,18 +6,23 @@
 #include <stdlib.h>
 #include "TFile.h"
 #include "TGraph.h"
+#include "TNtuple.h"
+#include "TH2D.h"
 using namespace std;
+
 vector<int> adjust (vector<int> &l);
 int maxfind (vector<int>&l);
 int minfind(vector<int> &l);
 int sum (vector<int>&l, int number1, int number2);
 double psd (vector<int>&l);
 
-int NuLatRoot()
+int main(int argc, char* argv[])
 {
-	string inputfile;
-	cout << "Please input file to be analysised" << endl;
-	cin >> inputfile;	
+	if (argc==1)
+	{
+		cerr << "Usage:" << argv[0] << "filename[s]\n";
+		exit(EXIT_FAILURE);
+	}
 	ifstream fin;
 	TFile* f=new TFile ("analysis.root","recreate");
 	int lineMaximum=500;
@@ -35,13 +40,15 @@ int NuLatRoot()
 	int totalenergy;
 	double psdratio;
 	TNtuple ntuple("ntuple","energy spectrum","totalenergy:psd");
+	TH2D* psdana=new TH2D("psdana","PSD Analysis",1000,0,2,100,0,1000);
 	vector<int> pulse;
+	for (int i=1; i<argc; i++)
 	{
-		fin.open (inputfile);
+		fin.open (argv[i]);
 		countline=0;
 		if (!fin.is_open())
 		{
-			cerr << "Could not open "<< inputfile<< endl;
+			cerr << "Could not open "<< argv[i]<< endl;
 			fin.clear();
 		}
 		while (fin.getline(str,lineMaximum))
@@ -80,6 +87,7 @@ int NuLatRoot()
 							totalenergy=sum(adjustedpulse,0,adjustedpulse.size());
 							psdratio = psd (adjustedpulse);
 							ntuple.Fill(totalenergy,psdratio);
+							psdana->Fill(psdratio,totalenergy);
 							for (int j=0; j<adjustedpulse.size(); j++)
 							{
 								pulsey[j]=adjustedpulse[j];
@@ -104,6 +112,7 @@ int NuLatRoot()
 			}
 			countline++;
 		}
+		psdana->Write();
 		f->Write();
 		f->Close();
 		fin.clear();
