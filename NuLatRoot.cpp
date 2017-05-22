@@ -81,7 +81,7 @@ int main(int argc, char* argv[])
 		TString titlename = rowstr+" "+rowname+" "+colstr+" "+colname+" "+chanlstr+" "+chanlname;
 		TString histname = rowname+" "+colname + " "+chanlname;
 		peakhist[i]=TH1D(peakstr+histname,titlename,2500,0,2500);	
-		integralhist[i]=TH1D(energystr+histname,titlename,100000,0,100000);
+		integralhist[i]=TH1D(energystr+histname,titlename,5000,0,200000);
 		psdhist[i]=TH1D(psdstr+histname,titlename,1000,0,1);
 	}
 	TString test="energy spectrum";
@@ -190,10 +190,22 @@ int main(int argc, char* argv[])
 							valleyamp=pulsey[valleypos];
 							int peakfullwidth=rightzeropos-leftzeropos;
 							int deltapeak=peakamp-valleyamp;
-							if (deltapeak < 40 || peakfullwidth <10)
+							if (deltapeak < 40 || peakfullwidth <20)
 							{
 								pulse.clear();
 								cout << "Event number=" << eventnumber << "\t just noise" << endl;
+								fout << "Event number=" << eventnumber << "\t just noise" << endl;
+								eventnumber=tempcondition[0];
+								eventrow=tempcondition[1];
+								eventcol=tempcondition[2];
+								eventchanl=tempcondition[3];								
+								break;
+							}
+							else if ( leftzeropos==0 || rightzeropos==adjustedpulse.size() || (peakpos-leftzeropos)<2 || (rightzeropos-peakpos)<2)
+							{
+								pulse.clear();
+								cout << "Event number=" << eventnumber << "\t part of pusle out of range" << endl;
+								fout << "Event number=" << eventnumber << "\t part of pulse out of range" << endl;
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
@@ -202,7 +214,17 @@ int main(int argc, char* argv[])
 							}
 							else
 							{
-								int histcount=eventchanl+eventcol*8+eventrow*64;								
+								int histcount=eventchanl+eventcol*8+eventrow*64;
+								if (histcount>64)
+								{
+									cout << "Unexpected signal come throught" << endl;
+									fout << "Unexpected signal come throught" << endl;
+									eventnumber=tempcondition[0];
+									eventrow=tempcondition[1];
+									eventcol=tempcondition[2];
+									eventchanl=tempcondition[3];
+									break;	
+								}								
 								channelnum[histcount]++;								
 								totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
 								psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
@@ -221,12 +243,12 @@ int main(int argc, char* argv[])
 								psdanalysis.push_back(psdratio);
 								row.push_back(eventrow);
 								col.push_back(eventcol);
-								channel.push_back(eventchanl);								
+								channel.push_back(eventchanl);
+								fout << "Event=" << eventnumber<<"\t Graph number="<<graphnumber <<" \t Peak amp=" << peakamp << "\t row=" << eventrow << "\t col=" << eventcol << "\t chanl=" << eventchanl << "\t total energy=" << totalenergy <<endl;									
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
 								eventchanl=tempcondition[3];
-								fout << "Event=" << eventnumber<<"\t Graph number="<<graphnumber <<" \t Peak amp=" << peakamp << "\t pulse size=" << adjustedpulse.size() << "\t total energy=" << totalenergy <<endl;	
 								graphnumber++;
 							}
 						}
