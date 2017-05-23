@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "TFile.h"
 #include "TGraph.h"
+#include "TGraph2D.h"
 #include "TNtuple.h"
 #include "TH2D.h"
 #include "TH1D.h"
@@ -56,7 +57,7 @@ int main(int argc, char* argv[])
 	int peakamp=0;
 	int valleyamp=0;
 	double psdratio=0.;
-	int graphnumber=0;
+	int graphnumber=1;
 	int channelnum[64]={0};
 	TString rowstr="row ";	
 	TString colstr="col ";
@@ -96,6 +97,10 @@ int main(int argc, char* argv[])
 	vector<int> row;
 	vector<int> col;
 	vector<int> channel;
+	vector<int> cubeID;
+	int xID[32]={0};
+	int yID[32]={0};
+	int energyinteg[32]={0};
 	for (int i=1; i<argc; i++)
 	{
 		fin.open (argv[i]);
@@ -153,20 +158,22 @@ int main(int argc, char* argv[])
                                         }
 					else if (tempdatacount==8)
 					{
-						if (tempcondition[0]!=eventnumber || tempcondition[1]!=eventrow || tempcondition[2]!=eventcol || tempcondition[3]!=eventchanl)
+						if (tempcondition[0]!=eventnumber)
 						{
 						//	cout << "tempcondition now is" << tempcondition[0] << "\t while event number is "<< eventnumber << endl;
 							vector<int> adjustedpulse=adjust(pulse);
 							int *pulsey=new int[adjustedpulse.size()];
 							int *xaxis=new int[adjustedpulse.size()];
 							int peakpos=maxfind(adjustedpulse);
-							int valleypos=minfind(adjustedpulse);
+							int valleypos=minfind(adjustedpulse);							
 							for (int j=0; j<adjustedpulse.size(); j++)
 							{
 								pulsey[j]=adjustedpulse[j];
 								xaxis[j]=j;
 							}
-							int threshold=15;
+							peakamp=pulsey[peakpos];
+							valleyamp=pulsey[valleypos];
+							int threshold=0;
 							int leftzeropos=0;
 							int rightzeropos=0;
 							for (int j=0; j<peakpos;j++)
@@ -185,32 +192,56 @@ int main(int argc, char* argv[])
 									break;
 								}
 							}
-							fout << "peakleft=" << leftzeropos <<"\t peak=" << peakpos << "\t peakright=" << rightzeropos << endl;
-							peakamp=pulsey[peakpos];
-							valleyamp=pulsey[valleypos];
+							//fout << "peakleft=" << leftzeropos <<"\t peak=" << peakpos << "\t peakright=" << rightzeropos << endl;
 							int peakfullwidth=rightzeropos-leftzeropos;
 							int deltapeak=peakamp-valleyamp;
-							if (deltapeak < 40 || peakfullwidth <20)
+							if (deltapeak < 20)
 							{
-								pulse.clear();
-								cout << "Event number=" << eventnumber << "\t just noise" << endl;
-								fout << "Event number=" << eventnumber << "\t just noise" << endl;
+								cout << "Event number=" << eventnumber << "\t Graph number="<<graphnumber << "\t too small pulse make it noise" << endl;
+								//fout << "Event number=" << eventnumber << "\t Graph number="<<graphnumber  << "\t too small pulse make it noise" << endl;
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
-								eventchanl=tempcondition[3];								
+								eventchanl=tempcondition[3];
+								TGraph *g=new TGraph(pulse.size(),xaxis,pulsey);
+								g->Draw("line");								
+								g->Write();
+								delete g;
+								pulse.clear();								
+								graphnumber++;	
 								break;
 							}
-							else if ( leftzeropos==0 || rightzeropos==adjustedpulse.size() || (peakpos-leftzeropos)<2 || (rightzeropos-peakpos)<2)
+							else if (peakfullwidth <10)
 							{
-								pulse.clear();
-								cout << "Event number=" << eventnumber << "\t part of pusle out of range" << endl;
-								fout << "Event number=" << eventnumber << "\t part of pulse out of range" << endl;
+								cout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber  << "\t too narrow pulse just noise" << endl;
+								//fout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber  << "\t too narrow pulse just noise" << endl;
+								cout << "peakleft=" << leftzeropos <<"\t peak=" << peakpos << "\t peakright=" << rightzeropos << endl;
+								eventnumber=tempcondition[0];
+								eventrow=tempcondition[1];
+								eventcol=tempcondition[2];
+								eventchanl=tempcondition[3];
+								TGraph *g=new TGraph(pulse.size(),xaxis,pulsey);
+								g->Write();
+								delete g;
+								pulse.clear();								
+								graphnumber++;
+								break;
+							}
+							else if ( leftzeropos==0 || rightzeropos==adjustedpulse.size())
+							{
+								cout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber << "\t part of pusle out of range" << endl;
+								//fout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber << "\t part of pulse out of range" << endl;
+								TGraph *g=new TGraph(pulse.size(),xaxis,pulsey);
+								g->Write();
+								delete g;
+								pulse.clear();								
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
 								eventchanl=tempcondition[3];								
+								graphnumber++;								
 								break;
+								
 							}
 							else
 							{
@@ -233,23 +264,220 @@ int main(int argc, char* argv[])
 								peakhist[histcount].Fill(peakamp);
 								integralhist[histcount].Fill(totalenergy);
 								psdhist[histcount].Fill(psdratio);					
-								TGraph *g=new TGraph(pulse.size(),xaxis,pulsey);
-								g->Write();
-								delete g;
 								pulse.clear();
+							/*event  information storage*/
+								cubeID.push_back(histcount);
 								event.push_back(eventnumber);
 								energyspec.push_back(totalenergy);
 								energypeak.push_back(peakamp);
 								psdanalysis.push_back(psdratio);
 								row.push_back(eventrow);
 								col.push_back(eventcol);
-								channel.push_back(eventchanl);
-								fout << "Event=" << eventnumber<<"\t Graph number="<<graphnumber <<" \t Peak amp=" << peakamp << "\t row=" << eventrow << "\t col=" << eventcol << "\t chanl=" << eventchanl << "\t total energy=" << totalenergy <<endl;									
+								channel.push_back(eventchanl);			
+								for (int j=0; j<cubeID.size(); j++)
+								{									
+									
+									if (col[j]==3)
+									{
+										yID[j]=0;
+										if (channel[j]<2)
+											xID[j]=0;
+										else if (1<channel[j]&&channel[j]<4)
+											xID[j]=1;
+										else if (3<channel[j]&&channel[j]<6)	
+											xID[j]=2;
+										else if (5<channel[j]&&channel[j]<8)	
+											xID[j]=3;
+									}
+									else if (col[j]==2)
+									{
+										if (channel[j]<2)
+										{
+											xID[j]=4;
+											yID[j]=0;
+										}
+										else if (1<channel[j]&&channel[j]<4)
+										{
+											xID[j]=0;
+											yID[j]=1;
+										}	
+										else
+										{
+											xID[j]=channel[j]-3;
+											yID[j]=1;
+										}									
+										
+									}
+									else if (col[j]==1)
+									{
+										if (channel[j]<5)
+										{
+											xID[j]=channel[j];
+											yID[j]=2;
+										}
+										else
+										{
+											xID[j]=channel[j]-5;
+											yID[j]=3;		
+										}		
+									}
+									else
+									{
+										if (channel[j]<2)
+										{
+											xID[j]=channel[j]+3;
+											yID[j]=3;
+										}
+										else 
+										{
+											xID[j]=channel[j]-2;
+											yID[j]=4;		
+										}		
+									}
+									energyinteg[j]=energyspec[j];
+									cout << xID[j] <<"\t" << yID[j] << "\t" << event[j] << "\t" << cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+								}
+								TGraph2D *g = new TGraph2D(32, xID, yID, energyinteg);
+								g->Write();
+								delete g;
+								for (int j=0; j<32; j++)
+								{
+									xID[j]=0;
+									yID[j]=0;
+									energyinteg[j]=0;
+								}						
+								cubeID.clear();
+								event.clear();
+								energyspec.clear();
+								energypeak.clear();
+								psdanalysis.clear();
+								row.clear();
+								col.clear();
+								channel.clear();								
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
 								eventchanl=tempcondition[3];
+							}
+						}
+						else if (tempcondition[1]!=eventrow || tempcondition[2]!=eventcol || tempcondition[3]!=eventchanl)
+						{
+						//	cout << "tempcondition now is" << tempcondition[0] << "\t while event number is "<< eventnumber << endl;
+							vector<int> adjustedpulse=adjust(pulse);
+							int *pulsey=new int[adjustedpulse.size()];
+							int *xaxis=new int[adjustedpulse.size()];
+							int peakpos=maxfind(adjustedpulse);
+							int valleypos=minfind(adjustedpulse);							
+							for (int j=0; j<adjustedpulse.size(); j++)
+							{
+								pulsey[j]=adjustedpulse[j];
+								xaxis[j]=j;
+							}
+							peakamp=pulsey[peakpos];
+							valleyamp=pulsey[valleypos];
+							int threshold=0;
+							int leftzeropos=0;
+							int rightzeropos=0;
+							for (int j=0; j<peakpos;j++)
+							{
+								if (pulsey[peakpos-j]<threshold)
+								{
+									leftzeropos=peakpos-j;
+									break;
+								}		
+							}
+							for (int j=0; j< adjustedpulse.size()-peakpos; j++)
+							{
+								if (pulsey[peakpos+j]<threshold)
+								{
+									rightzeropos=peakpos+j;
+									break;
+								}
+							}
+							//fout << "peakleft=" << leftzeropos <<"\t peak=" << peakpos << "\t peakright=" << rightzeropos << endl;
+							int peakfullwidth=rightzeropos-leftzeropos;
+							int deltapeak=peakamp-valleyamp;
+							if (deltapeak < 20)
+							{
+								cout << "Event number=" << eventnumber << "\t Graph number="<<graphnumber << "\t too small pulse make it noise" << endl;
+								//fout << "Event number=" << eventnumber << "\t Graph number="<<graphnumber  << "\t too small pulse make it noise" << endl;
+								eventnumber=tempcondition[0];
+								eventrow=tempcondition[1];
+								eventcol=tempcondition[2];
+								eventchanl=tempcondition[3];
+								TGraph *g=new TGraph(pulse.size(),xaxis,pulsey);
+								g->Write();
+								delete g;
+								pulse.clear();								
+								graphnumber++;	
+								break;
+							}
+							else if (peakfullwidth <10)
+							{
+								cout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber  << "\t too narrow pulse just noise" << endl;
+								//fout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber  << "\t too narrow pulse just noise" << endl;
+								cout << "peakleft=" << leftzeropos <<"\t peak=" << peakpos << "\t peakright=" << rightzeropos << endl;
+								eventnumber=tempcondition[0];
+								eventrow=tempcondition[1];
+								eventcol=tempcondition[2];
+								eventchanl=tempcondition[3];
+								TGraph *g=new TGraph(pulse.size(),xaxis,pulsey);
+								g->Write();
+								delete g;
+								pulse.clear();								
 								graphnumber++;
+								break;
+							}
+							else if ( leftzeropos==0 || rightzeropos==adjustedpulse.size())
+							{
+								cout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber << "\t part of pusle out of range" << endl;
+								//fout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber << "\t part of pulse out of range" << endl;
+								TGraph *g=new TGraph(pulse.size(),xaxis,pulsey);
+								g->Write();
+								delete g;
+								pulse.clear();								
+								eventnumber=tempcondition[0];
+								eventrow=tempcondition[1];
+								eventcol=tempcondition[2];
+								eventchanl=tempcondition[3];								
+								graphnumber++;								
+								break;
+								
+							}
+							else
+							{
+								int histcount=eventchanl+eventcol*8+eventrow*64;
+								if (histcount>64)
+								{
+									cout << "Unexpected signal come throught" << endl;
+									fout << "Unexpected signal come throught" << endl;
+									eventnumber=tempcondition[0];
+									eventrow=tempcondition[1];
+									eventcol=tempcondition[2];
+									eventchanl=tempcondition[3];
+									break;	
+								}								
+								channelnum[histcount]++;								
+								totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
+								psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
+								psdana->Fill(psdratio,totalenergy);								
+								ntuple.Fill(totalenergy,psdratio,peakamp);	
+								peakhist[histcount].Fill(peakamp);
+								integralhist[histcount].Fill(totalenergy);
+								psdhist[histcount].Fill(psdratio);					
+								pulse.clear();
+								cubeID.push_back(histcount);
+								event.push_back(eventnumber);
+								energyspec.push_back(totalenergy);
+								energypeak.push_back(peakamp);
+								psdanalysis.push_back(psdratio);
+								row.push_back(eventrow);
+								col.push_back(eventcol);
+								channel.push_back(eventchanl);									
+								eventnumber=tempcondition[0];
+								eventrow=tempcondition[1];
+								eventcol=tempcondition[2];
+								eventchanl=tempcondition[3];
 							}
 						}
 					}
@@ -263,7 +491,7 @@ int main(int argc, char* argv[])
 			countline++;
 		}
 		
-		for (int z=0; z<64; z++)
+		/*for (int z=0; z<64; z++)
 		{	
 			if (channelnum[z]!=0)			
 			{
@@ -271,8 +499,8 @@ int main(int argc, char* argv[])
 				integralhist[z].Write();
 				psdhist[z].Write();
 			}
-		}		
-		psdana->Write();
+		}*/		
+		//psdana->Write();
 		f->Write();
 		f->Close();
 		fin.clear();
