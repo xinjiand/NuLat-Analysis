@@ -290,7 +290,7 @@ int main(int argc, char* argv[])
 								channel.push_back(eventchanl);	
 								/*deal with the last event*/	
 								eventchar.Form ("%d",event[0]);	
-								TH2D* temp2dhis=new TH2D(eventstr+" "+eventchar, eventchar+"Energy mapping",20,-2,7,20,-2,7);						
+								TH2D* temp2dhis=new TH2D(eventstr+" "+eventchar, eventchar+"Energy mapping",10,0,5,10,0,5);						
 								for (int j=0; j<cubeID.size(); j++)
 								{									
 									
@@ -358,10 +358,13 @@ int main(int argc, char* argv[])
 										}		
 									}
 									energyinteg[j]=energyspec[j];
-									for (int k=0;k<energyinteg[j];k++)
+									if (xID[j]!=5&&xID[j]!=-1&&yID[j]!=-1)									
 									{
-										temp2dhis->Fill(xID[j],yID[j]);						
-								
+										for (int k=0;k<energyinteg[j];k++)
+										{
+											temp2dhis->Fill(xID[j],yID[j]);						
+									
+										}
 									}
 									
 									if (j==0)	
@@ -494,7 +497,7 @@ int main(int argc, char* argv[])
 								{
 										/*deal with the last event*/								
 									eventchar.Form ("%d",event[0]);	
-									TH2D* temp2dhis=new TH2D(eventstr+" "+eventchar,eventchar+"Energy mapping",20,-2,7,20,-2,7);						
+									TH2D* temp2dhis=new TH2D(eventstr+" "+eventchar,eventchar+"Energy mapping",10,0,5,10,0,5);						
 																	
 									for (int j=0; j<cubeID.size(); j++)
 									{									
@@ -562,11 +565,14 @@ int main(int argc, char* argv[])
 											}		
 										}
 										energyinteg[j]=energyspec[j];
-										for (int k=0;k<energyinteg[j];k++)
-										{
-											temp2dhis->Fill(xID[j],yID[j]);						
-										
-										}									
+										if (xID[j]!=5&&yID[j]!=-1&&xID[j]!=-1)												
+										{										
+											for (int k=0;k<energyinteg[j];k++)
+											{
+												temp2dhis->Fill(xID[j],yID[j]);						
+											
+											}	
+										}								
 										if (j==0)	
 						{
 							cout << event[j] << "\t" <<xID[j] <<"\t" << yID[j] << "\t" << cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
