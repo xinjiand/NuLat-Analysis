@@ -32,16 +32,6 @@ int main(int argc, char* argv[])
 	fout.open("analysis.txt",fstream::trunc);
 
 	int lineMaximum=1000;
-	{
-		int i=10;
-		TString test;
-		int x=13/8;
-		cout << x << endl;
-		test.Form ("%d",i);
-		TString test2="babababa";
-		test2=test2+" "+test;
-		cout << test2 <<endl;
-	}
 	char str[lineMaximum];
 	const char *d=" '\t'";
 	char* p;
@@ -59,12 +49,15 @@ int main(int argc, char* argv[])
 	double psdratio=0.;
 	int graphnumber=1;
 	int channelnum[64]={0};
+	int firsteventflag=0;
 	TString rowstr="row ";	
 	TString colstr="col ";
 	TString chanlstr="channel ";
 	TString energystr="energy ";
 	TString peakstr="peak ";
 	TString psdstr="psd ";
+	TString eventstr="event";
+	TString eventchar;
 	TH1D peakhist[64];
 	TH1D integralhist[64];
 	TH1D psdhist[64];	
@@ -74,8 +67,6 @@ int main(int argc, char* argv[])
 		int rowcount=i/64;
 		int colcount=i/8;
 		int channelcount=i%8;
-	//	cout << rowcount <<" "<<colcount < " " << channelcount <<endl;
-		cout << rowcount << colcount << channelcount << endl;	
 		rowname.Form ("%d",rowcount);
 		colname.Form ("%d",colcount);
 		chanlname.Form ("%d",channelcount);
@@ -101,6 +92,19 @@ int main(int argc, char* argv[])
 	int xID[32]={0};
 	int yID[32]={0};
 	int energyinteg[32]={0};
+/*	
+	{
+		for (int i=0; i<32; i++)
+		{
+			xID[i]=i%5;
+			yID[i]=i/5;
+			energyinteg[i]=i;
+		}
+		TGraph2D *g = new TGraph2D(32, xID, yID, energyinteg);
+		g->Write();
+		delete g;
+		
+	} */
 	for (int i=1; i<argc; i++)
 	{
 		fin.open (argv[i]);
@@ -160,7 +164,7 @@ int main(int argc, char* argv[])
 					{
 						if (tempcondition[0]!=eventnumber)
 						{
-						//	cout << "tempcondition now is" << tempcondition[0] << "\t while event number is "<< eventnumber << endl;
+							fout << "tempcondition now is" << tempcondition[0] << "\t while event number is "<< eventnumber << endl;
 							vector<int> adjustedpulse=adjust(pulse);
 							int *pulsey=new int[adjustedpulse.size()];
 							int *xaxis=new int[adjustedpulse.size()];
@@ -208,8 +212,9 @@ int main(int argc, char* argv[])
 								g->Write();
 								delete g;
 								pulse.clear();								
-								graphnumber++;	
-								break;
+								graphnumber++;
+								firsteventflag=1;	
+								//break;
 							}
 							else if (peakfullwidth <10)
 							{
@@ -225,7 +230,8 @@ int main(int argc, char* argv[])
 								delete g;
 								pulse.clear();								
 								graphnumber++;
-								break;
+								firsteventflag=1;
+								//break;
 							}
 							else if ( leftzeropos==0 || rightzeropos==adjustedpulse.size())
 							{
@@ -239,47 +245,24 @@ int main(int argc, char* argv[])
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
 								eventchanl=tempcondition[3];								
-								graphnumber++;								
-								break;
+								graphnumber++;	
+								firsteventflag=1;							
+								//break;
 								
 							}
 							else
-							{
-								int histcount=eventchanl+eventcol*8+eventrow*64;
-								if (histcount>64)
-								{
-									cout << "Unexpected signal come throught" << endl;
-									fout << "Unexpected signal come throught" << endl;
-									eventnumber=tempcondition[0];
-									eventrow=tempcondition[1];
-									eventcol=tempcondition[2];
-									eventchanl=tempcondition[3];
-									break;	
-								}								
-								channelnum[histcount]++;								
-								totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
-								psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
-								psdana->Fill(psdratio,totalenergy);								
-								ntuple.Fill(totalenergy,psdratio,peakamp);	
-								peakhist[histcount].Fill(peakamp);
-								integralhist[histcount].Fill(totalenergy);
-								psdhist[histcount].Fill(psdratio);					
-								pulse.clear();
-							/*event  information storage*/
-								cubeID.push_back(histcount);
-								event.push_back(eventnumber);
-								energyspec.push_back(totalenergy);
-								energypeak.push_back(peakamp);
-								psdanalysis.push_back(psdratio);
-								row.push_back(eventrow);
-								col.push_back(eventcol);
-								channel.push_back(eventchanl);			
+							{		
+								/*deal with the last event*/	
+								eventchar.Form ("%d",event[0]);	
+								TH2D* temp2dhis=new TH2D(eventstr+eventchar,"Energy mapping",10,-2,6,10,-2,6);						
 								for (int j=0; j<cubeID.size(); j++)
 								{									
 									
 									if (col[j]==3)
 									{
 										yID[j]=0;
+										if (channel[j]==1||channel[j]==3||channel[j]==5||channel[j]==7)
+										yID[j]=-1;
 										if (channel[j]<2)
 											xID[j]=0;
 										else if (1<channel[j]&&channel[j]<4)
@@ -305,7 +288,11 @@ int main(int argc, char* argv[])
 										{
 											xID[j]=channel[j]-3;
 											yID[j]=1;
-										}									
+										}
+										if (channel[j]==1)
+											xID[j]=-1;
+										else if(channel[j]==3)
+											xID[j]=5;									
 										
 									}
 									else if (col[j]==1)
@@ -335,8 +322,30 @@ int main(int argc, char* argv[])
 										}		
 									}
 									energyinteg[j]=energyspec[j];
-									cout << xID[j] <<"\t" << yID[j] << "\t" << event[j] << "\t" << cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+									for (int k=0;k<energyinteg[j];k++)
+									{
+										temp2dhis->Fill(xID[j],yID[j]);						
+								
+									}
+									
+									if (j==0)	
+					{
+						cout << event[j] << "\t" <<xID[j] <<"\t" << yID[j] << "\t" << cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+						fout << event[j] << "\t" <<xID[j] <<"\t" << yID[j] << "\t" << cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+					}
+								else if (j==cubeID.size()-1)	
+					{
+						cout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+						fout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+					}
+								else
+					{
+						cout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+						fout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+					}								
 								}
+								temp2dhis->Write();
+								delete temp2dhis;
 								TGraph2D *g = new TGraph2D(32, xID, yID, energyinteg);
 								g->Write();
 								delete g;
@@ -353,16 +362,46 @@ int main(int argc, char* argv[])
 								psdanalysis.clear();
 								row.clear();
 								col.clear();
-								channel.clear();								
+								channel.clear();
+								/*analyze information for the new pulse*/
+								int histcount=eventchanl+eventcol*8+eventrow*64;
+								if (histcount>64)
+								{
+									cout << "Unexpected signal come throught" << endl;
+									fout << "Unexpected signal come throught" << endl;
+									eventnumber=tempcondition[0];
+									eventrow=tempcondition[1];
+									eventcol=tempcondition[2];
+									eventchanl=tempcondition[3];
+									break;	
+								}								
+								channelnum[histcount]++;								
+								totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
+								psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
+								psdana->Fill(psdratio,totalenergy);								
+								ntuple.Fill(totalenergy,psdratio,peakamp);	
+								peakhist[histcount].Fill(peakamp);
+								integralhist[histcount].Fill(totalenergy);
+								psdhist[histcount].Fill(psdratio);					
+								pulse.clear();	
+								/*event  information storage*/
+								cubeID.push_back(histcount);
+								event.push_back(eventnumber);
+								energyspec.push_back(totalenergy);
+								energypeak.push_back(peakamp);
+								psdanalysis.push_back(psdratio);
+								row.push_back(eventrow);
+								col.push_back(eventcol);
+								channel.push_back(eventchanl);		
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
-								eventchanl=tempcondition[3];
+								eventchanl=tempcondition[3];						
 							}
 						}
 						else if (tempcondition[1]!=eventrow || tempcondition[2]!=eventcol || tempcondition[3]!=eventchanl)
-						{
-						//	cout << "tempcondition now is" << tempcondition[0] << "\t while event number is "<< eventnumber << endl;
+						{								
+							fout << "tempcondition now is" << tempcondition[0] << "\t while event number is "<< eventnumber << endl;
 							vector<int> adjustedpulse=adjust(pulse);
 							int *pulsey=new int[adjustedpulse.size()];
 							int *xaxis=new int[adjustedpulse.size()];
@@ -400,7 +439,7 @@ int main(int argc, char* argv[])
 							if (deltapeak < 20)
 							{
 								cout << "Event number=" << eventnumber << "\t Graph number="<<graphnumber << "\t too small pulse make it noise" << endl;
-								//fout << "Event number=" << eventnumber << "\t Graph number="<<graphnumber  << "\t too small pulse make it noise" << endl;
+							//fout << "Event number=" << eventnumber << "\t Graph number="<<graphnumber  << "\t too small pulse make it noise" << endl;
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
@@ -415,7 +454,7 @@ int main(int argc, char* argv[])
 							else if (peakfullwidth <10)
 							{
 								cout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber  << "\t too narrow pulse just noise" << endl;
-								//fout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber  << "\t too narrow pulse just noise" << endl;
+							//fout << "Event number=" << eventnumber  << "\t Graph number="<<graphnumber  << "\t too narrow pulse just noise" << endl;
 								cout << "peakleft=" << leftzeropos <<"\t peak=" << peakpos << "\t peakright=" << rightzeropos << endl;
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
@@ -446,38 +485,194 @@ int main(int argc, char* argv[])
 							}
 							else
 							{
-								int histcount=eventchanl+eventcol*8+eventrow*64;
-								if (histcount>64)
+								if (firsteventflag==1)
 								{
-									cout << "Unexpected signal come throught" << endl;
-									fout << "Unexpected signal come throught" << endl;
+										/*deal with the last event*/								
+									eventchar.Form ("%d",event[0]);	
+									TH2D* temp2dhis=new TH2D(eventstr+eventchar,"Energy mapping",10,-2,6,10,-2,6);						
+																	
+									for (int j=0; j<cubeID.size(); j++)
+									{									
+										if (col[j]==3)
+										{
+											yID[j]=0;
+											if (channel[j]==1||channel[j]==3||channel[j]==5||channel[j]==7)
+											yID[j]=-1;
+											if (channel[j]<2)
+												xID[j]=0;
+											else if (1<channel[j]&&channel[j]<4)
+												xID[j]=1;
+											else if (3<channel[j]&&channel[j]<6)	
+												xID[j]=2;
+											else if (5<channel[j]&&channel[j]<8)	
+												xID[j]=3;
+										}
+										else if (col[j]==2)
+										{
+											if (channel[j]<2)
+											{
+												xID[j]=4;
+												yID[j]=0;
+											}
+											else if (1<channel[j]&&channel[j]<4)
+											{
+												xID[j]=0;
+												yID[j]=1;
+											}	
+											else
+											{
+												xID[j]=channel[j]-3;
+												yID[j]=1;
+											}	
+											if (channel[j]==1)
+												xID[j]=-1;
+											else if(channel[j]==3)
+												xID[j]=5;								
+											
+										}
+										else if (col[j]==1)
+										{
+											if (channel[j]<5)
+											{
+												xID[j]=channel[j];
+												yID[j]=2;
+											}
+											else
+											{
+												xID[j]=channel[j]-5;
+												yID[j]=3;		
+											}		
+										}
+										else
+										{
+											if (channel[j]<2)
+											{
+												xID[j]=channel[j]+3;
+												yID[j]=3;
+											}
+											else 
+											{
+												xID[j]=channel[j]-2;
+												yID[j]=4;		
+											}		
+										}
+										energyinteg[j]=energyspec[j];
+										for (int k=0;k<energyinteg[j];k++)
+										{
+											temp2dhis->Fill(xID[j],yID[j]);						
+										
+										}									
+										if (j==0)	
+						{
+							cout << event[j] << "\t" <<xID[j] <<"\t" << yID[j] << "\t" << cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+							fout << event[j] << "\t" <<xID[j] <<"\t" << yID[j] << "\t" << cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+						}
+									else if (j==cubeID.size()-1)	
+						{
+							cout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+							fout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+						}
+									else
+						{
+							cout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+							fout << xID[j] <<"\t" << yID[j] << "\t"  << event[j] << "\t"<< cubeID[j] << "\t" << energyspec[j] << "\t" << energypeak[j] << endl;
+						}							
+									}
+									temp2dhis->Write();
+									delete temp2dhis;
+									TGraph2D *g = new TGraph2D(32, xID, yID, energyinteg);
+									g->Write();
+									delete g;
+									for (int j=0; j<32; j++)
+									{
+										xID[j]=0;
+										yID[j]=0;
+										energyinteg[j]=0;
+									}						
+									cubeID.clear();
+									event.clear();
+									energyspec.clear();
+									energypeak.clear();
+									psdanalysis.clear();
+									row.clear();
+									col.clear();
+									channel.clear();	
+									eventnumber=tempcondition[0];
+									eventrow=tempcondition[1];
+									eventcol=tempcondition[2];
+									eventchanl=tempcondition[3];									
+									int histcount=eventchanl+eventcol*8+eventrow*64;
+									if (histcount>64)
+									{
+										cout << "Unexpected signal come throught" << endl;
+										fout << "Unexpected signal come throught" << endl;
+										eventnumber=tempcondition[0];
+										eventrow=tempcondition[1];
+										eventcol=tempcondition[2];
+										eventchanl=tempcondition[3];
+										break;	
+									}								
+									channelnum[histcount]++;								
+									totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
+									psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
+									psdana->Fill(psdratio,totalenergy);								
+									ntuple.Fill(totalenergy,psdratio,peakamp);	
+									peakhist[histcount].Fill(peakamp);
+									integralhist[histcount].Fill(totalenergy);
+									psdhist[histcount].Fill(psdratio);					
+									pulse.clear();
+									cubeID.push_back(histcount);
+									event.push_back(eventnumber);
+									energyspec.push_back(totalenergy);
+									energypeak.push_back(peakamp);
+									psdanalysis.push_back(psdratio);
+									row.push_back(eventrow);
+									col.push_back(eventcol);
+									channel.push_back(eventchanl);
+									eventnumber=tempcondition[0];
+									eventrow=tempcondition[1];
+									eventcol=tempcondition[2];
+									eventchanl=tempcondition[3];									
+									
+									firsteventflag=0;
+
+								}
+								else								
+								{
+									int histcount=eventchanl+eventcol*8+eventrow*64;
+									if (histcount>64)
+									{
+										cout << "Unexpected signal come throught" << endl;
+										fout << "Unexpected signal come throught" << endl;
+										eventnumber=tempcondition[0];
+										eventrow=tempcondition[1];
+										eventcol=tempcondition[2];
+										eventchanl=tempcondition[3];
+										break;	
+									}								
+									channelnum[histcount]++;								
+									totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
+									psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
+									psdana->Fill(psdratio,totalenergy);								
+									ntuple.Fill(totalenergy,psdratio,peakamp);	
+									peakhist[histcount].Fill(peakamp);
+									integralhist[histcount].Fill(totalenergy);
+									psdhist[histcount].Fill(psdratio);					
+									pulse.clear();
+									cubeID.push_back(histcount);
+									event.push_back(eventnumber);
+									energyspec.push_back(totalenergy);
+									energypeak.push_back(peakamp);
+									psdanalysis.push_back(psdratio);
+									row.push_back(eventrow);
+									col.push_back(eventcol);
+									channel.push_back(eventchanl);	
 									eventnumber=tempcondition[0];
 									eventrow=tempcondition[1];
 									eventcol=tempcondition[2];
 									eventchanl=tempcondition[3];
-									break;	
 								}								
-								channelnum[histcount]++;								
-								totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
-								psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
-								psdana->Fill(psdratio,totalenergy);								
-								ntuple.Fill(totalenergy,psdratio,peakamp);	
-								peakhist[histcount].Fill(peakamp);
-								integralhist[histcount].Fill(totalenergy);
-								psdhist[histcount].Fill(psdratio);					
-								pulse.clear();
-								cubeID.push_back(histcount);
-								event.push_back(eventnumber);
-								energyspec.push_back(totalenergy);
-								energypeak.push_back(peakamp);
-								psdanalysis.push_back(psdratio);
-								row.push_back(eventrow);
-								col.push_back(eventcol);
-								channel.push_back(eventchanl);									
-								eventnumber=tempcondition[0];
-								eventrow=tempcondition[1];
-								eventcol=tempcondition[2];
-								eventchanl=tempcondition[3];
+								
 							}
 						}
 					}
