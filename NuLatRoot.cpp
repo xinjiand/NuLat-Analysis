@@ -621,11 +621,6 @@ int main(int argc, char* argv[])
 									integralhist[histcount].Fill(totalenergy);
 									psdhist[histcount].Fill(psdratio);					
 									pulse.clear();
-									/*new event condition being initialized here*/
-									eventnumber=tempcondition[0];
-									eventrow=tempcondition[1];
-									eventcol=tempcondition[2];
-									eventchanl=tempcondition[3];
 									/*event  information storage*/		
 									cubeID.push_back(histcount);
 									event.push_back(eventnumber);
@@ -636,6 +631,11 @@ int main(int argc, char* argv[])
 									col.push_back(eventcol);
 									channel.push_back(eventchanl);
 									firsteventflag=0;
+									/*new event condition being initialized here*/
+									eventnumber=tempcondition[0];
+									eventrow=tempcondition[1];
+									eventcol=tempcondition[2];
+									eventchanl=tempcondition[3];
 
 								}
 								else								
