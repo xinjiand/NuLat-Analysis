@@ -258,7 +258,36 @@ int main(int argc, char* argv[])
 							}
 							/*Good pulse being selectd and deal with here*/
 							else
-							{		
+							{	
+								/*analyze information for the new pulse*/
+								int histcount=eventchanl+eventcol*8+eventrow*64;
+								if (histcount>64)
+								{
+									cout << "Unexpected signal come throught" << endl;
+									fout << "Unexpected signal come throught" << endl;
+									eventnumber=tempcondition[0];
+									eventrow=tempcondition[1];
+									eventcol=tempcondition[2];
+									eventchanl=tempcondition[3];
+									break;	
+								}																
+								totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
+								psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
+								psdana->Fill(psdratio,peakamp);								
+								ntuple.Fill(totalenergy,psdratio,peakamp);	
+								peakhist[histcount].Fill(peakamp);
+								integralhist[histcount].Fill(totalenergy);
+								psdhist[histcount].Fill(psdratio);					
+								pulse.clear();	
+								/*event  information storage*/
+								cubeID.push_back(histcount);
+								event.push_back(eventnumber);
+								energyspec.push_back(totalenergy);
+								energypeak.push_back(peakamp);
+								psdanalysis.push_back(psdratio);
+								row.push_back(eventrow);
+								col.push_back(eventcol);
+								channel.push_back(eventchanl);	
 								/*deal with the last event*/	
 								eventchar.Form ("%d",event[0]);	
 								TH2D* temp2dhis=new TH2D(eventstr+" "+eventchar, eventchar+"Energy mapping",20,-2,7,20,-2,7);						
@@ -370,41 +399,12 @@ int main(int argc, char* argv[])
 								row.clear();
 								col.clear();
 								channel.clear();
-								/*analyze information for the new pulse*/
-								int histcount=eventchanl+eventcol*8+eventrow*64;
-								if (histcount>64)
-								{
-									cout << "Unexpected signal come throught" << endl;
-									fout << "Unexpected signal come throught" << endl;
-									eventnumber=tempcondition[0];
-									eventrow=tempcondition[1];
-									eventcol=tempcondition[2];
-									eventchanl=tempcondition[3];
-									break;	
-								}																
-								totalenergy=sum(adjustedpulse,leftzeropos,rightzeropos);
-								psdratio = psd (adjustedpulse,leftzeropos,peakpos,rightzeropos);
-								psdana->Fill(psdratio,peakamp);								
-								ntuple.Fill(totalenergy,psdratio,peakamp);	
-								peakhist[histcount].Fill(peakamp);
-								integralhist[histcount].Fill(totalenergy);
-								psdhist[histcount].Fill(psdratio);					
-								pulse.clear();	
+								
 								/*new event condition being initialized here*/		
 								eventnumber=tempcondition[0];
 								eventrow=tempcondition[1];
 								eventcol=tempcondition[2];
-								eventchanl=tempcondition[3];						
-								/*event  information storage*/
-								cubeID.push_back(histcount);
-								event.push_back(eventnumber);
-								energyspec.push_back(totalenergy);
-								energypeak.push_back(peakamp);
-								psdanalysis.push_back(psdratio);
-								row.push_back(eventrow);
-								col.push_back(eventcol);
-								channel.push_back(eventchanl);
-								
+								eventchanl=tempcondition[3];									
 												
 							}
 						}
