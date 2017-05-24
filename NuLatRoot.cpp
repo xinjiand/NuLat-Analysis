@@ -254,7 +254,7 @@ int main(int argc, char* argv[])
 							{		
 								/*deal with the last event*/	
 								eventchar.Form ("%d",event[0]);	
-								TH2D* temp2dhis=new TH2D(eventstr+eventchar,"Energy mapping",10,-2,6,10,-2,6);						
+								TH2D* temp2dhis=new TH2D(eventstr+eventchar,"Energy mapping",10,-2,7,10,-2,7);						
 								for (int j=0; j<cubeID.size(); j++)
 								{									
 									
@@ -489,7 +489,7 @@ int main(int argc, char* argv[])
 								{
 										/*deal with the last event*/								
 									eventchar.Form ("%d",event[0]);	
-									TH2D* temp2dhis=new TH2D(eventstr+eventchar,"Energy mapping",10,-2,6,10,-2,6);						
+									TH2D* temp2dhis=new TH2D(eventstr+eventchar,"Energy mapping",10,-2,7,10,-2,7);						
 																	
 									for (int j=0; j<cubeID.size(); j++)
 									{									
