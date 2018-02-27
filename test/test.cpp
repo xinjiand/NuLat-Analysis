@@ -1,0 +1,52 @@
+#include <iostream>
+#include <fstream>
+
+using namespace std;
+
+int main()
+{
+	int a =5; 
+	int b=10;
+	int c=15;
+	cout << a/10 << "\t" << b/10 << "\t" << c/10 << endl;
+	cout << a%10 << "\t" << b%10 << "\t" << c%10 << endl;
+	
+
+	ofstream foutdata;
+	foutdata.open ("-radon-calibration.csv");
+	foutdata << "CubeID, Orange, Blue, Green, EventCount, \n";
+	
+	
+	//ofstream foutdata;
+	//foutdata.open (xAid+"-"+yAid+"-"+zAid+"-"+Aname+xAid+"-"+yAid+"-"+zAid+"-"+Bname+xBid+"-"+yBid+"-"+zBid+"-"+fracname+".csv");
+	//foutdata << "Event Num, Event Count, Orange A, Blue A, Green A, Orange B, Blue B, Green B, Orange A PSD, Blue A PSD, Green A PSD, Orange B PSD, Blue B PSD, Green B PSD,timingAB-Orange, timingAB-Blue, timingAB-Green, timingA-Orange. timingA-Blue, timingA-Green, timingB-Orange, timingB-Blue, timingB-Green, \n";
+	
+	
+	int cubeID;
+	
+	
+	for (int a=0; a<5; a++)
+	{
+		for (int b=0; b<5; b++)
+		{
+			for (int c=0; c<5; c++)
+			{
+				
+				cubeID=a*100+b*10+c;
+				
+				foutdata << cubeID << "," << "\n";
+				
+							
+			}
+		}
+	}
+	//cout << "total "<< eventcount << "\t events being found" << endl;
+	//foutdata.clear();
+	//foutdata.close();
+	//foutevent.clear();
+	//foutevent.close();
+	foutdata.clear();
+	foutdata.close();
+	return 0;
+	
+}
