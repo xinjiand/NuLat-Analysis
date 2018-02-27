@@ -1,0 +1,52 @@
+#include <iostream>
+#include <fstream>
+using namespace std;
+int main()
+{
+        int minfile, maxfile;
+        cout << "input the nubmer of the first file needs to be analysised" << endl;
+        cin >> minfile;
+        cout << "input the nubmer of the last file needs to be analysised" << endl;
+        cin >> maxfile;
+        string option;
+        cout << "input analysis option : Sub and glenn (s) . Analysis (a)" << endl;
+        cin >> option;
+        if (option=="s")
+        {
+                ofstream fout;
+                /*scrod2subtract exp_0043_run_0498.dat ped1004 
+                 scrod2glenn exp_0043_run_0498_subtracted.dat */
+                fout.open("sub-shell");
+                string pedfile;
+                cout << "input pedistal file needs to be used" << endl;
+                cin >> pedfile;
+                for (int i=0; i<(maxfile-minfile); i++)
+                {                
+                        fout << "scrod2subtract exp_0043_run_0" <<minfile+i<<".dat "<<pedfile << endl;
+                        fout << "scrod2glenn exp_0043_run_0"<<minfile+i<<"_subtracted.dat"<<endl;
+                }
+                fout.clear();
+                fout.close();
+        }
+        else if (option=="a")
+        {
+                ofstream fout;
+                fout.open("ana-shell");
+               
+                /* NuLatAB exp_0043_run_0497_subtracted.glenn 1004-Gr-7 */
+                string anafile;
+                cout << "input the name of analysised file" << endl;
+                cin >> anafile;
+                for (int i=0; i<(maxfile-minfile); i++)
+                {     
+                                   
+                        fout << "NuLatAB exp_0043_run_0"<<minfile+i<<"_subtracted.glenn "<<anafile << endl;
+                }
+                fout.clear();
+                fout.close();
+        }
+        
+
+        return 0;
+}
+

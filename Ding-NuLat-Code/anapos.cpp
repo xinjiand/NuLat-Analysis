@@ -1,0 +1,868 @@
+#include <iostream>
+#include <fstream>
+#include <cstdlib> // for exit()
+#include <string.h>
+#include <vector>
+#include <stdlib.h>
+#include "TFile.h"
+#include "TGraph.h"
+#include "TGraph2D.h"
+#include "TMultiGraph.h"
+#include "TNtuple.h"
+#include "TH2D.h"
+#include "TH1D.h"
+#include "TString.h"
+#include "anafunction.h"
+using namespace std;
+typedef vector<int> Row;
+typedef vector<Row> Matrix;
+typedef vector<float> RowPsd;
+typedef vector<RowPsd> MatrixPsd;
+
+void recalibration (float a[10][10], int rl,int rh,int cl, int ch);
+
+bool pick(int a[10][10],int b[10][10], Matrix &l , int n);
+
+void print2Darray (int a[10][10]);
+
+void printMatrix (Matrix &l);
+
+void printfloat2Darray ( float a[10][10]);
+
+bool compare(int energycompare, Matrix &l, int row, int col,int n);
+
+bool compareTwo(int energycompare, Matrix &l, int row1, int col1, int row2, int col2, int n);
+
+bool compete (Matrix &l , int r, int c, int rowl, int coll,int n);
+
+
+
+
+int main(int argc, char* argv[])
+{
+	/*initalizae the variable using to reading different files*/
+	int lineMaximum=5000;
+	char str[lineMaximum];
+	const char *d=" '\t'";
+	char* p;
+	/*initialize the option this analysis needs to do
+		
+		T: Just for test, will creat 100 event 2D energy map
+		C: Threshold cut and then output 2D historgram of energy map and 1D spectrum for each channel
+		RC: Recalibration the energy just be reasonable number (needs to modified incase the number out of range)	
+	*/
+	string option;
+	cout << " Choose which command you need : Test(T) ; Fill Histogram (H) ;  Threshold cut (C) ; Recalibration (RC) ; Real Events search (S)" << endl;
+	cin >> option;
+	/* open different file ready to be input
+		
+		energy	psd	peak	timing	cubeID	event
+		
+	*/
+	string analysisname=argv[1];
+	ifstream fincondition;
+	fincondition.open ("condition.txt");
+	ifstream finenergy;
+	finenergy.open (analysisname+" energy.txt");
+	ifstream finpsd;
+	finpsd.open (analysisname+" psd.txt");
+	ifstream finpeak;
+	finpeak.open (analysisname+" peak.txt");
+	ifstream fintiming;
+	fintiming.open (analysisname+" timing.txt");
+	ifstream fincube;
+	fincube.open (analysisname+" cubeID.txt");
+	ifstream finevent;
+	finevent.open (analysisname+" event.txt");
+	/* reading event file and create a event vector to be used and event cateory in the future, also deine the number of line needs to be read from other file by counting event number*/	
+	vector<int> eventID;
+	int n=0; 
+	while (finevent.getline(str,lineMaximum))
+	{
+		p=strtok (str,d);		
+		eventID.push_back (atoi(p));
+		//cout << p << endl;
+		n++;
+	}
+	/* output a matrix mapping being reading here*/
+	cout << n << " event in this file" << " type the option you need" << endl;
+	cout << "	x=0	x=1	x=2	x=3	x=4	x=5	x=6	x=7	x=8	x=9"		<<endl;			
+	cout << "y=0	130	131	132	133	134	030	031	032	033	034"		<<endl;
+	cout << "y=1	135	137	124	125	126	035	037	020	021	022" 		<<endl;
+	cout <<	"y=2	127	110	111	112	113	023	024	025	026	027"		<<endl;			
+	cout <<	"y=3	114	115	116	117	100	010	011	012	013	014"		<<endl;		
+	cout <<	"y=4	101	102	103	104	105	015	016	017	106	107"		<<endl;
+	cout <<	"y=5					"							<<endl;
+	cout << "y=6					"							<<endl;
+	cout << "y=7					"							<<endl;
+	cout <<	"y=8	000	001	002	003	004	005	006	007	136	036"		<<endl;
+	cout <<	"y=9	120	121	122	123	sum+					eventID"	<<endl;
+	/*create different matrix to store data in the future and also 2D matrix as for calibration and threshold cut*/
+	Matrix energy(n*10,Row(10));	
+	MatrixPsd psd(n*10,RowPsd(10));
+	Matrix peak(n*10,Row(10));
+	Matrix timing(n*10,Row(10));
+	Matrix cube(n*10,Row(10));
+	int lowthreshold[10][10]={	{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0}};
+	
+	int highthreshold[10][10]={	{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000},
+					{2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000,	2000}};	
+
+	float calibration[10][10]={	{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0},
+					{0,	0,	0,	0,	0,	0,	0,	0,	0,	0}};	
+	
+	/*Start reading data from different file*/
+	int i=0;	
+	int j=0;
+	while (fincondition.getline(str,lineMaximum))
+	{
+		
+		p=strtok (str,d);
+		if (i<11 && i>0)			
+		{	while (p)
+			{	
+				lowthreshold[i-1][j]=atoi(p);
+				j++;			
+				p=strtok(NULL,d);	
+			}
+		}
+		else if (i>11 && i < 22)			
+		{	while (p)
+			{	
+				highthreshold[i-12][j]=atoi(p);
+				j++;			
+				p=strtok(NULL,d);	
+			}
+		}
+		else if (i >22 && i<33)			
+		{	while (p)
+			{	
+				calibration[i-23][j]=atoi(p);
+				j++;			
+				p=strtok(NULL,d);	
+			}
+		}
+		j=0;
+		i++;
+		//cout << i << endl;
+	}
+	i=0;
+	while (finenergy.getline(str,lineMaximum))
+	{
+		p=strtok (str,d);
+		while (p)
+		{	
+			energy[i][j]=atoi(p);
+			j++;			
+			p=strtok(NULL,d);	
+		}
+		j=0;
+		i++;
+	}
+	i=0;
+	while (finpeak.getline(str,lineMaximum))
+	{
+		p=strtok (str,d);
+		while (p)
+		{			
+			peak[i][j]=atoi(p);
+			j++;			
+			p=strtok(NULL,d);	
+		}
+		j=0;
+		i++;
+	}
+	i=0;
+	while (finpsd.getline(str,lineMaximum))
+	{
+		p=strtok (str,d);
+		while (p)
+		{
+			psd[i][j]=atof(p);
+			j++;			
+			p=strtok(NULL,d);	
+		}
+		j=0;
+		i++;
+	}
+	i=0;
+	while (fintiming.getline(str,lineMaximum))
+	{
+		p=strtok (str,d);
+		while (p)
+		{
+			timing[i][j]=atoi(p);
+			j++;			
+			p=strtok(NULL,d);	
+		}
+		j=0;
+		i++;
+	}
+	i=0;
+	while (fincube.getline(str,lineMaximum))
+	{
+		p=strtok (str,d);
+		while (p)
+		{
+			cube[i][j]=atoi(p);
+			j++;			
+			p=strtok(NULL,d);	
+		}
+		j=0;
+		i++;
+	}
+	
+	/*After the input from different data, start analysis*/
+	if (option=="2D total energy map" || option=="T")
+	{
+		/*create root file to store graph*/		
+		TString rootap=".root";
+		TString analysisfile;
+		analysisfile.Form ("%s",argv[1]);
+		TFile* f=new TFile (analysisfile+"-total-energy-map"+rootap,"recreate");
+		/*Fill 100 2D energy map*/			
+		for (int i=0; i<100; i++)
+		{
+			TString eventchar;		
+			eventchar.Form ("%d",eventID[i]);	
+			TH2D* temp2dhis=new TH2D("event "+eventchar, eventchar+"Energy mapping",20,0,10,20,0,10);		
+			for(int j=0;j<10;j++)
+			{
+				for(int k=0; k<10; k++)
+				{
+					if (j<6 || k>0)											
+					{											
+						if (cube[j+i*10][k]>0 && cube[j+i*10][k] < 65)
+						{									
+							cout << "energy =" << energy[j+i*10][k] << "\t cubeID=" <<  cube[j][k]<< endl;							
+							for (int l=0;l<energy[j+i*10][k];l++)
+							{
+								temp2dhis->Fill(j,k);						
+							}				
+						}
+					}										
+				}
+			}
+			temp2dhis->Write();
+			delete temp2dhis;
+		}
+		f->Write();
+		f->Close();									
+	}							
+	
+	/*create a root file that recreate a root file hold data into different histogram*/
+	if (option=="histogram" || option=="H")
+	{
+		/*create root file to store graph*/		
+		TString rootap=".root";
+		TString analysisfile;
+		analysisfile.Form ("%s",argv[1]);
+		TFile* f=new TFile (analysisfile+"-histogram"+rootap,"recreate");
+		/*create different histogram to hold information*/
+		TString rowstr="row ";	
+		TString colstr="col ";
+		TString chanlstr="channel ";
+		TString energystr="energy ";
+		TString peakstr="peak ";
+		TString psdstr="psd ";
+		TString eventstr="event";
+		TH1D peakhist[64];
+		TH1D integralhist[64];
+		TH2D psdhist[64];
+		int rowcount, colcount, channelcount;
+		TString rowname,colname,chanlname;
+		for (int i=1; i<65; i++)
+		{									
+			rowcount=(i-1)/32;
+			colcount=0;		
+			if (i<33)
+			colcount=(i-1)/8;
+			else
+			colcount=(i-33)/8;
+			channelcount=(i-1)%8;
+			rowname.Form ("%d",rowcount);
+			colname.Form ("%d",colcount);
+			chanlname.Form ("%d",channelcount);
+			TString titlename = rowstr+" "+rowname+" "+colstr+" "+colname+" "+chanlstr+" "+chanlname;
+			TString histname = rowname+" "+colname + " "+chanlname;
+			peakhist[i-1]=TH1D(peakstr+histname,titlename,2000,0,2000);	
+			integralhist[i-1]=TH1D(energystr+histname,titlename,2000,0,500000); // needs to be modified the size and maximum
+			psdhist[i-1]=TH2D(psdstr+histname,titlename,2000,0,500000,100,0,1);
+		}			
+		/*Fill the histogram i-> event, j-> row, k-> col */
+		for (int i=0; i<n; i++)
+		{
+			for(int j=0;j<10;j++)
+			{
+				for(int k=0; k<10; k++)
+				{
+					if (j<9 || k>0)	// row 9 is the row hold summary information, skip col 0 which hold the infatmation of trig
+					{											
+						if (cube[j+i*10][k]>0 && cube[j+i*10][k] < 65)
+						{									
+							//cout << "psd =" << psd[j+i*10][k] << "\t cubeID=" <<  cube[j][k]<< endl;							
+							peakhist[cube[j+i*10][k]-1].Fill(peak[j+i*10][k]);
+							integralhist[cube[j+i*10][k]-1].Fill(energy[j+i*10][k]);
+							psdhist[cube[j+i*10][k]-1].Fill(energy[j+i*10][k],psd[j+i*10][k]);			
+						}
+					}										
+				}
+			}
+			cout << "Event=" << i << "\t being analysised" << endl; 
+		}
+		f->Write();
+		f->Close();									
+	}	
+	
+	if (option=="Threshold cut" || option=="C")
+	{
+		/*create root file to store graph*/						
+		TString rootap=".root";
+		TString analysisfile;
+		analysisfile.Form ("%s",argv[1]);
+		TFile* f=new TFile (analysisfile+"-threshold-cut"+rootap,"recreate");
+		/*create histogram store data*/		
+		TString rowstr="row ";	
+		TString colstr="col ";
+		TString chanlstr="channel ";
+		TString energystr="energy ";
+		TString peakstr="peak ";
+		TString psdstr="psd ";
+		TString eventstr="event";
+		TH1D peakhist[64];
+		TH1D integralhist[64];
+		TH2D psdhist[64];
+		int rowcount, colcount, channelcount;
+		TString rowname,colname,chanlname;
+		for (int i=1; i<65; i++)
+		{						
+			rowcount=(i-1)/32;
+			colcount=0;		
+			if (i<33)
+			colcount=(i-1)/8;
+			else
+			colcount=(i-33)/8;
+			channelcount=(i-1)%8;
+			rowname.Form ("%d",rowcount);
+			colname.Form ("%d",colcount);
+			chanlname.Form ("%d",channelcount);
+			TString titlename = rowstr+" "+rowname+" "+colstr+" "+colname+" "+chanlstr+" "+chanlname;
+			TString histname = rowname+" "+colname + " "+chanlname;
+			peakhist[i-1]=TH1D(peakstr+histname,titlename,1000,0,2000);	
+			integralhist[i-1]=TH1D(energystr+histname,titlename,1500,0,500000); // needs to be modified the size and maximum
+			psdhist[i-1]=TH2D(psdstr+histname,titlename,2000,0,500000,100,0,1);
+		}		
+		/*veto the false event by energy cut*/
+		print2Darray (lowthreshold);
+		print2Darray (highthreshold);
+		string MapOption;
+		cout << "Do you need 2D mapping (y or n)" << endl;
+		cin >> MapOption;
+		bool veto=true;	
+		bool vetomax=true;
+		string maxoption;							
+		cout << " Whether you want to set the cube to be max (y or n)" <<endl;
+		cin >> maxoption;
+		int row1, col1,row2, col2;
+		int MaxEnergy;	
+		int ch1energy, ch2energy;
+		int ChNum;
+		if (maxoption!="n")
+		{				
+			cout << "Select one channel or two (1 or 2)" << endl;
+			cin >> ChNum;
+			if ( ChNum==1)
+			{
+				cout << "Input the row of channel you want to max" << endl;
+				cin >> row1;
+				cout << "Input the col of channel you want to max" << endl;
+				cin >> col1;
+			}
+			else
+			{
+				cout << "Input the first row of channel you want to max" << endl;
+				cin >> row1;
+				cout << "Input the first col of channel you want to max" << endl;
+				cin >> col1;
+				cout << "Input the second row of channel you want to max" << endl;
+				cin >> row2;
+				cout << "Input the second col of channel you want to max" << endl;
+				cin >> col2;
+			
+			}
+		}
+		//printMatrix (energy);
+		//cout << energy[0][0] << "\t" << energy[10][0] << "\t" <<energy[20][0] << endl;
+		int eventcount=0;
+		for (int i=0; i<n; i++)			
+		{	
+			veto=pick(lowthreshold,highthreshold,energy,i);
+			if (!veto)
+			{														
+				if (maxoption=="n")
+				vetomax=false;
+				else 
+				{
+					if (ChNum==1)
+					{
+						MaxEnergy=energy[row1+10*i][col1];
+						vetomax=compare(MaxEnergy,energy , row1, col1, i);
+						cout << MaxEnergy << "\t out put \t " << i  << endl;
+					}
+					else
+					{ 					
+						ch1energy=energy[row1+10*i][col1];
+						ch2energy=energy[row2+10*i][col2];
+						if (ch1energy>ch2energy)
+						MaxEnergy=ch2energy;
+						else 
+						MaxEnergy=ch1energy;						
+						vetomax=compareTwo(MaxEnergy,energy , row1,col1,row2,col2,i);
+						cout << vetomax << endl;			
+					}
+				}				
+				if (!vetomax)
+				{
+						
+					for(int j=0;j<10;j++)
+					{
+						for(int k=0; k<10; k++)
+						{
+							if (j<6 || k>1)											
+							{											
+								if (cube[j+i*10][k]>0 && cube[j+i*10][k] < 65)
+								{									
+									cout << "energy =" << energy[j+i*10][k] << "\t cubeID=" <<  cube[j][k]<< endl;							
+									peakhist[cube[j+i*10][k]-1].Fill(peak[j+i*10][k]);
+									integralhist[cube[j+i*10][k]-1].Fill(energy[j+i*10][k]);
+									psdhist[cube[j+i*10][k]-1].Fill(energy[j+i*10][k],psd[j+i*10][k]);
+												
+								}
+							}										
+						}
+					}
+
+					if (MapOption=="y")
+					{			
+						TString eventchar;						
+						eventchar.Form ("%d",eventID[i]);	
+						TH2D* temp2dhis=new TH2D("event "+eventchar, eventchar+"Energy mapping",20,0,10,20,0,10);
+						for(int j=0;j<10;j++)
+						{
+							for(int k=0; k<10; k++)
+							{
+								if (j<6)											
+								{											
+									if (cube[j+i*10][k]>0 && cube[j+i*10][k] < 65)
+									{	
+										if (j==4 && k==4)
+										{
+											for (int l=0;l<energy[j+i*10][k];l++)
+											{
+												temp2dhis->Fill(k,9-j);
+												//cout << "Fill the 2D map" << endl;						
+											}
+										}
+										else
+										{										
+											for (int l=0;l<energy[j+i*10][k];l++)
+											{
+												temp2dhis->Fill(k,9-j);
+												//cout << "Fill the 2D map" << endl;						
+											}
+										}
+									}
+								}
+							}
+						}
+						cout << "wrtie the 2D map" << endl;
+						temp2dhis->Write();
+						delete temp2dhis;
+					}	
+					eventcount++;
+				}	
+			}
+		}
+		cout << "finish threshold cut" <<  "\t total event=" << n << "\t the event being selected=" << eventcount << endl;		
+		f->Write();
+		f->Close();									
+	}
+	
+	if (option=="Recalibration" || option=="RC")
+	{
+		TString rootap=".root";
+		TString analysisfile;
+		analysisfile.Form ("%s",argv[1]);
+		TFile* f=new TFile (analysisfile+"-recalibration"+rootap,"recreate");			
+
+		TH1D* sum=new TH1D ("sum of one side", "spectrum after calibration",3000,0,2000000);	
+		/*recalibration*/
+		int rl,rh,cl,ch;
+		cout << "type the min row to be calibration" << endl;
+		cin >> rl;
+		cout << "type the max row to be calibration" << endl;
+		cin >> rh;
+		cout << "type the min col to be calibration" << endl;
+		cin >> cl;
+		cout << "type the max col to be calibration" << endl;
+		cin >> ch;
+		printfloat2Darray (calibration);
+		recalibration (calibration,rl,rh,cl,ch);
+		printfloat2Darray (calibration);	
+		/*Fill histogram*/	
+		int sumenergy=0;	
+		for (int i=0; i<n; i++)
+		{
+			for(int j=rl;j<rh+1;j++)
+			{
+				for(int k=cl; k<ch+1; k++)
+				{	
+					sumenergy=sumenergy+energy[j+i*10][k]*calibration[j][k];											
+				}
+			}
+			sum->Fill(sumenergy);
+			sumenergy=0;
+		}
+		/*Fill each channel to double check the calibration*/
+		TString rowstr="row ";	
+		TString colstr="col ";
+		TString chanlstr="channel ";
+		TString energystr="energy ";
+		TString peakstr="peak ";
+		TString psdstr="psd ";
+		TString eventstr="event";
+		TH1D peakhist[64];
+		TH1D integralhist[64];
+		TH2D psdhist[64];
+		for (int i=1; i<65; i++)
+		{						
+			TString rowname,colname,chanlname;
+			int rowcount=(i-1)/32;
+			int colcount=0;		
+			if (i<33)
+			colcount=(i-1)/8;
+			else
+			colcount=(i-33)/8;
+			int channelcount=(i-1)%8;
+			rowname.Form ("%d",rowcount);
+			colname.Form ("%d",colcount);
+			chanlname.Form ("%d",channelcount);
+			TString titlename = rowstr+" "+rowname+" "+colstr+" "+colname+" "+chanlstr+" "+chanlname;
+			TString histname = rowname+" "+colname + " "+chanlname;
+			peakhist[i-1]=TH1D(peakstr+histname,titlename,1000,0,2000);	
+			integralhist[i-1]=TH1D(energystr+histname,titlename,1500,0,500000); // needs to be modified the size and maximum
+			psdhist[i-1]=TH2D(psdstr+histname,titlename,1500,0,500000,100,0,1);
+		}
+		for (int i=0; i<n; i++)			
+		{		
+			/*TString eventchar;		
+			eventchar.Form ("%d",eventID[i]);	
+			TH2D* temp2dhis=new TH2D("event "+eventchar, eventchar+"Energy mapping",20,0,10,20,0,10);*/		
+			for(int j=rl;j<rh+1;j++)
+			{
+				for(int k=cl; k<ch+1; k++)
+				{
+					if (j<6 || k==2)											
+					{											
+						if (cube[j+i*10][k]>0 && cube[j+i*10][k]<65)
+						{									
+							//cout << "energy =" << energy[j+i*10][k] << "\t cubeID=" <<  cube[j][k]<< endl;							
+							peakhist[cube[j+i*10][k]-1].Fill(peak[j+i*10][k]);
+							integralhist[cube[j+i*10][k]-1].Fill(energy[j+i*10][k]*calibration[j][k]);
+							psdhist[cube[j+i*10][k]-1].Fill(energy[j+i*10][k],psd[j+i*10][k]);			
+						}
+					}										
+				}
+			}
+			/*temp2dhis->Write();
+			delete temp2dhis;*/	
+		}				
+		sum->Write();
+		delete sum;
+		f->Write();
+		f->Close();									
+	}
+
+	if (option=="Real Events search" || option=="S")
+	{
+		TString rootap=".root";
+		TString analysisfile;
+		analysisfile.Form ("%s",argv[1]);
+		TFile* f=new TFile (analysisfile+"-real-event-pick"+rootap,"recreate");			
+		/*search position*/
+		int eventcount=0;
+		
+		/*Fill histogram*/	
+		bool vetof1 , vetof2;
+		/*Fill each channel to double check the calibration*/
+		cout << "start compete" << endl;
+		for (int i=0; i<5; i++)
+		{
+			for (int j=0; j<5; j++)
+			{
+				for (int k=0; k<n; k++)
+				{
+					vetof1=compete(energy,i,j,0,0,k);
+					if (!vetof1)
+					{
+						for (int l=0; l<5; l++)
+						{
+							for (int m=5; m<10; m++)
+							{
+								vetof2=compete(energy,l,m,0,5,k);
+								if (!vetof2)									
+								{
+																	
+									TString eventchar;						
+									eventchar.Form ("%d",eventID[k]);
+									cout << "event being found=" << eventID[k] << endl;	
+									eventcount++;
+										
+									TH2D* temp2dhis=new TH2D("event "+eventchar, eventchar+"Energy mapping",20,0,10,20,0,10);
+									//cout << "event being found" << endl;									
+									for(int o=0; o<5 ; o++)
+									{
+										for(int q=0; q<10; q++)
+										{
+											//cout << "event being found"<< n << endl;					
+											for (int t=0;t<energy[o+k*10][q];t++)
+											{
+												//cout << o << "\t" << q << endl;
+												temp2dhis->Fill(q,9-o);
+														//cout << "Fill the 2D map" << endl;						
+											}
+										}
+									}
+									cout << "wrtie the 2D map" << endl;
+									temp2dhis->Write();
+									delete temp2dhis;		
+								}
+														
+							}
+						}
+					}
+					
+				}				
+						
+			}		
+		}
+		cout << "finish threshold cut" <<  "\t total event=" << n << "\t the event being selected=" << eventcount << endl;
+		f->Write();
+		f->Close();									
+	}
+
+
+	cout << "good analysis " << n << " event being"<<endl;
+	finenergy.clear();
+	finpsd.clear();
+	finpeak.clear();
+	fintiming.clear();
+	fincube.clear();
+	finenergy.close();
+	finpsd.close();
+	finpeak.close();
+	fintiming.close();
+	fincube.close();
+	return 0;
+}
+
+void print2Darray (int a[10][10])
+{
+	for (int i=0; i< 10; i++)
+	{
+		for (int j=0; j<10; j++)
+		{
+			if (j==9)
+			{
+				cout << a[i][j] << endl;
+			}
+			else
+			{
+				cout << a[i][j] << "\t" ;
+			}
+		}
+	}
+}
+
+void printfloat2Darray ( float a[10][10])
+{
+	for (int i=0; i< 10; i++)
+	{
+		for (int j=0; j<10; j++)
+		{
+			if (j==9)
+			{
+				cout << a[i][j] << endl;
+			}
+			else
+			{
+				cout << a[i][j] << "\t" ;
+			}
+		}
+	}
+}
+
+void printMatrix (Matrix &l)
+{
+	for (int i=0; i< l.size(); i++)
+	{
+		for (int j=0; j<10; j++)
+		{
+			if (j==9)
+			{
+				cout << l[i][j] << endl;
+			}
+			else
+			{
+				cout << l[i][j] << "\t" ;
+			}
+		}
+	}
+}
+
+void recalibration (float a[10][10], int rl,int rh,int cl, int ch)
+{
+	float multiply=100;
+	for (int i=rl ; i< rh+1 ; i++)
+	{
+		for (int j=cl; j<ch+1; j++)
+		{
+			multiply=multiply*a[i][j]/10;
+			cout << "multiply=" << multiply << endl;
+		}
+		
+	}
+	for (int i=rl ; i< rh+1 ; i++)
+	{
+		for (int j=cl; j<ch+1; j++)
+		{
+			a[i][j]=multiply/a[i][j]/1000000000;
+		}
+	}
+}
+
+
+bool pick(int a[10][10],int b[10][10], Matrix &l , int n)
+{
+	bool eventveto=false;
+	cout << "start process of pick" << endl;
+	for (int i=0; i<5; i++)
+	{
+		for (int j=0; j<10; j++)
+		{
+			if (l[i+10*n][j]<a[i][j] || l[i+10*n][j]>b[i][j])
+			{			
+				cout << "veto from pick \t" << l[i+10*n][j] << endl;			
+				eventveto=true;
+			}
+		}
+	} 
+	return eventveto;
+}
+
+bool compare(int energycompare, Matrix &l, int row, int col,int n)
+{
+	bool eventveto=false;
+	cout << "initialize veto to be" << eventveto << endl;
+	for (int i=0; i<5; i++)
+	{
+		for (int j=0; j<10; j++)
+		{
+			if (l[i+10*n][j]>energycompare)
+			{	
+				cout << l[i+10*n][j] << "\t" << energycompare << endl;
+				eventveto=true;
+			}
+		}
+	} 
+	if (eventveto) 
+	cout << n <<"th event being vetoed" << endl;
+	return eventveto;
+}
+
+
+bool compareTwo(int energycompare, Matrix &l, int row1, int col1, int row2, int col2, int n)
+{
+	bool eventveto=false;
+	cout << "initialize veto to be" << eventveto << endl;
+	for (int i=0; i<5; i++)
+	{
+		for (int j=0; j<10; j++)
+		{
+			if (i==row1 && j==col1)
+			{
+				cout << "the first channel skip" << endl;
+			}
+			else if (i==row2 && j==col2)	
+			{
+				cout << "the second channel skip" << endl;
+			}					
+			else if (l[i+10*n][j]>energycompare)
+			{									
+				cout << l[i+10*n][j] << "\t" << energycompare << endl;
+				eventveto=true;
+			}
+		}
+	}
+	if (eventveto) 
+	cout << n <<"th event being vetoed" << endl;
+	return eventveto;
+}
+
+bool compete (Matrix &l , int r, int c, int rowl, int coll,int n)
+{
+	bool eventveto=false;
+	if (l[r+n*10][c] < 2500)
+	eventveto=true;
+	int test;
+	//cout << "initialize veto to be" << eventveto << endl;
+	for (int i=rowl; i< rowl+5; i++)
+	{
+		for (int j=coll; j<coll+5; j++)
+		{
+			if (i==r && j==c)
+			{
+				test=0;		
+			}
+			else 
+			{
+				if (l[i+10*n][j]>l[r+n*10][c]*0.1)
+				{
+					eventveto=true;
+					//cout << i << "\t" <<j << "\t"  << r << "\t"<< n  << "\t" << c << endl;
+				}
+				
+			}
+			
+		}
+	} 
+	//cout << "running compete, got veto to be" << eventveto << endl;
+	return eventveto;
+}
+
+
